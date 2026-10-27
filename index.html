@@ -356,25 +356,40 @@
 /* ═══ CONFIG — edite aqui ═══ */
 const SUPABASE_URL = 'https://pyoejhhkjlrjijiviryq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5b2VqaGhramxyamlqaXZpcnlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNTI1MDQsImV4cCI6MjA2OTcyODUwNH0.2P5wKq7b6viMa9kutLOZADsqAvSZx6X8fbLZMlooG1U';
-const TABLE = 'feedbacks';
-const F = { tipo:'tipo', modulo:'modulo', impacto:'impacto', msg:'mensagem', at:'created_at' };
+const TABLE = 'feedback';
+const F = { tipo:'type', modulo:'module', impacto:'impact', msg:'message', at:'created_at' };
 /* ══════════════════════════ */
 
 const OK = !SUPABASE_URL.includes('SEU_PROJETO');
 let data = [], filterType = 'all', search = '';
 
-const MODS = ['Agenda','Mapa','Visitas','Consultoria','Desenho/Talhões','Clima','Carteira','Marketing','Planos','Configurações/Login','Outro'];
+/* k = valor gravado no Supabase (contrato Dart); label = texto exibido */
+const MODS = [
+  { k:'agenda',         label:'Agenda' },
+  { k:'map',            label:'Mapa' },
+  { k:'visits',         label:'Visitas' },
+  { k:'consulting',     label:'Consultoria' },
+  { k:'drawing',        label:'Desenho/Talhões' },
+  { k:'weather',        label:'Clima' },
+  { k:'wallet',         label:'Carteira' },
+  { k:'marketing',      label:'Marketing' },
+  { k:'plans',          label:'Planos' },
+  { k:'settings_login', label:'Configurações/Login' },
+  { k:'other',          label:'Outro' }
+];
+const MOD_LABEL = Object.fromEntries(MODS.map(m => [m.k, m.label]));
 const TIPOS = [
-  { k:'Bug',      color:'#FF3B30', ic:'svg-bug', cls:'bug' },
-  { k:'Sugestão', color:'#F59E0B', ic:'svg-sug', cls:'sug' },
-  { k:'Elogios',  color:'#34C759', ic:'svg-elo', cls:'elo' }
+  { k:'bug',        label:'Bug',      color:'#FF3B30', ic:'svg-bug', cls:'bug' },
+  { k:'suggestion', label:'Sugestão', color:'#F59E0B', ic:'svg-sug', cls:'sug' },
+  { k:'praise',     label:'Elogios',  color:'#34C759', ic:'svg-elo', cls:'elo' }
 ];
 const IMPS = [
-  { k:'Baixo',   color:'#34C759' },
-  { k:'Médio',   color:'#F59E0B' },
-  { k:'Alto',    color:'#FF3B30' },
-  { k:'Crítico', color:'#7C3AED' }
+  { k:'low',      label:'Baixo',   color:'#34C759' },
+  { k:'medium',   label:'Médio',   color:'#F59E0B' },
+  { k:'high',     label:'Alto',    color:'#FF3B30' },
+  { k:'critical', label:'Crítico', color:'#7C3AED' }
 ];
+const IMP_LABEL = Object.fromEntries(IMPS.map(i => [i.k, i.label]));
 
 /* ── SVG helper ── */
 function svgNode(id) {
@@ -398,11 +413,12 @@ function donut(el, items, total) {
 /* ── URGÊNCIA automática ── */
 function urgency() {
   const counts = {};
-  MODS.forEach(m => counts[m] = 0);
+  MODS.forEach(m => counts[m.k] = 0);
   data.forEach(d => { if (counts[d[F.modulo]] !== undefined) counts[d[F.modulo]]++; });
   const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
-  const [topMod, topCount] = sorted[0] || ['—', 0];
-  const criticalCount = data.filter(d => d[F.impacto] === 'Crítico').length;
+  const [topModKey, topCount] = sorted[0] || ['—', 0];
+  const topMod = MOD_LABEL[topModKey] || topModKey;
+  const criticalCount = data.filter(d => d[F.impacto] === 'critical').length;
   const el = document.getElementById('urgency');
   if (topCount === 0) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
@@ -419,22 +435,22 @@ function urgency() {
 
 /* ── KPIs ── */
 function kpis() {
-  document.getElementById('k-bug').textContent = data.filter(d => d[F.tipo]==='Bug').length;
-  document.getElementById('k-sug').textContent = data.filter(d => d[F.tipo]==='Sugestão').length;
-  document.getElementById('k-elo').textContent = data.filter(d => d[F.tipo]==='Elogios').length;
+  document.getElementById('k-bug').textContent = data.filter(d => d[F.tipo]==='bug').length;
+  document.getElementById('k-sug').textContent = data.filter(d => d[F.tipo]==='suggestion').length;
+  document.getElementById('k-elo').textContent = data.filter(d => d[F.tipo]==='praise').length;
 }
 
 /* ── DONUTS ── */
 function donuts() {
   donut(document.getElementById('donut-tipo'),
-    TIPOS.map(t => ({ label:t.k, val:data.filter(d=>d[F.tipo]===t.k).length, color:t.color })), data.length);
+    TIPOS.map(t => ({ label:t.label, val:data.filter(d=>d[F.tipo]===t.k).length, color:t.color })), data.length);
   donut(document.getElementById('donut-imp'),
-    IMPS.map(i => ({ label:i.k, val:data.filter(d=>d[F.impacto]===i.k).length, color:i.color })), data.length);
+    IMPS.map(i => ({ label:i.label, val:data.filter(d=>d[F.impacto]===i.k).length, color:i.color })), data.length);
 }
 
 /* ── MÓDULOS ── */
 function modBars() {
-  const counts = {}; MODS.forEach(m => counts[m] = 0);
+  const counts = {}; MODS.forEach(m => counts[m.k] = 0);
   data.forEach(d => { if (counts[d[F.modulo]] !== undefined) counts[d[F.modulo]]++; });
   const sorted = Object.entries(counts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const mx = Math.max(...sorted.map(([,v])=>v), 1);
@@ -442,7 +458,7 @@ function modBars() {
   if (!sorted.length) { el.innerHTML = '<p style="font-size:12px;color:var(--text-sec)">Sem dados.</p>'; return; }
   el.innerHTML = sorted.map(([m,c], i) => `
     <div class="bar-row">
-      <div class="bar-label">${m}${i===0?'<span class="top-mod-tag">TOP</span>':''}</div>
+      <div class="bar-label">${MOD_LABEL[m]||m}${i===0?'<span class="top-mod-tag">TOP</span>':''}</div>
       <div class="bar-track"><div class="bar-fill${i===0?' top':''}" style="width:${Math.round(c/mx*100)}%"></div></div>
       <div class="bar-count">${c}</div>
     </div>`).join('');
@@ -469,7 +485,7 @@ function buildFilters() {
   const el = document.getElementById('filters');
   const items = [
     { k:'all', label:'Todos', cls:'' },
-    ...TIPOS.map(t => ({ k:t.k, label:t.k, cls:t.cls, ic:t.ic }))
+    ...TIPOS.map(t => ({ k:t.k, label:t.label, cls:t.cls, ic:t.ic }))
   ];
   el.innerHTML = items.map(i => `
     <div class="chip${filterType===i.k?' on':''}" data-f="${i.k}">
@@ -481,29 +497,29 @@ function buildFilters() {
 }
 
 /* ── LISTA ── */
-const BADGE_CLS = { Baixo:'baixo', Médio:'medio', Alto:'alto', Crítico:'critico' };
-const IMP_PRIORITY = { Crítico:0, Alto:1, Médio:2, Baixo:3 };
+const BADGE_CLS = { low:'baixo', medium:'medio', high:'alto', critical:'critico' };
+const IMP_PRIORITY = { critical:0, high:1, medium:2, low:3 };
 
 function renderList() {
   let f = data.slice();
   // ordenar por prioridade de impacto primeiro, depois data
   f.sort((a,b) => (IMP_PRIORITY[a[F.impacto]]??4) - (IMP_PRIORITY[b[F.impacto]]??4) || new Date(b[F.at])-new Date(a[F.at]));
   if (filterType !== 'all') f = f.filter(d => d[F.tipo]===filterType);
-  if (search) { const q=search.toLowerCase(); f=f.filter(d=>(d[F.msg]||'').toLowerCase().includes(q)||(d[F.modulo]||'').toLowerCase().includes(q)); }
+  if (search) { const q=search.toLowerCase(); f=f.filter(d=>(d[F.msg]||'').toLowerCase().includes(q)||(MOD_LABEL[d[F.modulo]]||'').toLowerCase().includes(q)); }
   document.getElementById('lcount').textContent = `${f.length} feedback${f.length!==1?'s':''} — ordenado por urgência`;
   const el = document.getElementById('fblist');
   if (!f.length) { el.innerHTML = '<div class="fb-empty">Nenhum feedback encontrado.</div>'; return; }
   const t = TIPOS.find(t=>t.k===filterType);
   el.innerHTML = f.map(fb => {
-    const imp = fb[F.impacto]||'Baixo';
+    const imp = fb[F.impacto]||'low';
     const tipo = TIPOS.find(t=>t.k===fb[F.tipo]) || TIPOS[0];
-    const hlClass = imp==='Crítico'?'critico':imp==='Alto'?'alto':'';
+    const hlClass = imp==='critical'?'critico':imp==='high'?'alto':'';
     return `<div class="fb ${hlClass}">
       <div class="fb-ic-wrap ${tipo.cls}">${svgNode(tipo.ic)}</div>
       <div class="fb-body">
         <div class="fb-top">
-          <span class="fb-mod">${fb[F.modulo]||'Outro'}</span>
-          <span class="badge ${BADGE_CLS[imp]||'baixo'}">${imp}</span>
+          <span class="fb-mod">${MOD_LABEL[fb[F.modulo]]||'Outro'}</span>
+          <span class="badge ${BADGE_CLS[imp]||'baixo'}">${IMP_LABEL[imp]||imp}</span>
           <span class="fb-date">${fmtDate(fb[F.at])}</span>
         </div>
         <div class="fb-msg">${(fb[F.msg]||'').trim()||'<em style="color:var(--text-dis)">Sem mensagem</em>'}</div>
@@ -545,19 +561,19 @@ function setStatus(dotCls, label, color) {
 function loadDemo() {
   const n = Date.now(), d = s => new Date(n - 864e5*s).toISOString();
   data = [
-    { tipo:'Bug',      modulo:'Mapa',                  impacto:'Crítico', mensagem:'App trava ao abrir ocorrência com foto.', created_at:d(0) },
-    { tipo:'Bug',      modulo:'Configurações/Login',   impacto:'Crítico', mensagem:'Login com Apple ID não funciona.', created_at:d(1) },
-    { tipo:'Bug',      modulo:'Agenda',                impacto:'Alto',    mensagem:'Tela preta ao tentar salvar visita.', created_at:d(2) },
-    { tipo:'Bug',      modulo:'Mapa',                  impacto:'Alto',    mensagem:'Pins de marketing somem ao dar zoom out.', created_at:d(3) },
-    { tipo:'Bug',      modulo:'Visitas',               impacto:'Médio',   mensagem:'Histórico offline não carrega.', created_at:d(5) },
-    { tipo:'Bug',      modulo:'Clima',                 impacto:'Médio',   mensagem:'Dados de chuva não atualizam.', created_at:d(6) },
-    { tipo:'Sugestão', modulo:'Consultoria',           impacto:'Médio',   mensagem:'Exportação de relatório direto em PDF.', created_at:d(3) },
-    { tipo:'Sugestão', modulo:'Marketing',             impacto:'Baixo',   mensagem:'Preview do case antes de publicar.', created_at:d(1) },
-    { tipo:'Sugestão', modulo:'Desenho/Talhões',       impacto:'Baixo',   mensagem:'Nomear talhões diretamente no mapa.', created_at:d(4) },
-    { tipo:'Sugestão', modulo:'Carteira',              impacto:'Médio',   mensagem:'Filtro por safra na lista de clientes.', created_at:d(7) },
-    { tipo:'Elogios',  modulo:'Mapa',                  impacto:'Baixo',   mensagem:'Mapa ficou muito mais rápido!', created_at:d(2) },
-    { tipo:'Elogios',  modulo:'Planos',                impacto:'Baixo',   mensagem:'Interface de planos muito intuitiva.', created_at:d(0) },
-    { tipo:'Elogios',  modulo:'Consultoria',           impacto:'Baixo',   mensagem:'Relatórios técnicos excelentes.', created_at:d(3) },
+    { type:'bug',        module:'map',            impact:'critical', message:'App trava ao abrir ocorrência com foto.', created_at:d(0) },
+    { type:'bug',        module:'settings_login', impact:'critical', message:'Login com Apple ID não funciona.', created_at:d(1) },
+    { type:'bug',        module:'agenda',         impact:'high',     message:'Tela preta ao tentar salvar visita.', created_at:d(2) },
+    { type:'bug',        module:'map',            impact:'high',     message:'Pins de marketing somem ao dar zoom out.', created_at:d(3) },
+    { type:'bug',        module:'visits',         impact:'medium',   message:'Histórico offline não carrega.', created_at:d(5) },
+    { type:'bug',        module:'weather',        impact:'medium',   message:'Dados de chuva não atualizam.', created_at:d(6) },
+    { type:'suggestion', module:'consulting',     impact:'medium',   message:'Exportação de relatório direto em PDF.', created_at:d(3) },
+    { type:'suggestion', module:'marketing',      impact:'low',      message:'Preview do case antes de publicar.', created_at:d(1) },
+    { type:'suggestion', module:'drawing',        impact:'low',      message:'Nomear talhões diretamente no mapa.', created_at:d(4) },
+    { type:'suggestion', module:'wallet',         impact:'medium',   message:'Filtro por safra na lista de clientes.', created_at:d(7) },
+    { type:'praise',     module:'map',            impact:'low',      message:'Mapa ficou muito mais rápido!', created_at:d(2) },
+    { type:'praise',     module:'plans',          impact:'low',      message:'Interface de planos muito intuitiva.', created_at:d(0) },
+    { type:'praise',     module:'consulting',     impact:'low',      message:'Relatórios técnicos excelentes.', created_at:d(3) },
   ];
   setStatus('demo','Demo','#F59E0B');
   document.getElementById('upd').textContent = 'agora';
